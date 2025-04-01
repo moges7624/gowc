@@ -86,7 +86,7 @@ func main(){
       os.Exit(1)
     }
 
-    fmt.Printf("%d %d %d %s\n", lineCount, wordCount, byteCount, fileName)
+    fmt.Printf("%6d %6d %6d %s\n", lineCount, wordCount, byteCount, fileName)
     defer file.Close()
   }
 }
