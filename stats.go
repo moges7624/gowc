@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"strings"
 	"unicode/utf8"
@@ -60,7 +59,6 @@ func countWordsInFile(file io.Reader) (int, error){
 }
 
 func countRunesInFile(file io.Reader)(int, error){
-  fmt.Printf("Hello there")
   scanner := bufio.NewScanner(file)
   runeCount := 0
 
