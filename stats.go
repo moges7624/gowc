@@ -2,80 +2,155 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
+	"log"
+	"os"
+	"strconv"
 	"strings"
-	"unicode/utf8"
+	"unicode"
 )
 
-func countBytesInFile(file io.Reader) (int, error) {
-  buf := make([]byte, 4096)
-  totalBytes := 0
+type Options struct {
+  printBytes bool
+  printLines bool
+  printWords bool
+  printChars bool
+}
+
+type stats struct {
+  bytes uint64
+  words uint64
+  lines uint64
+  chars uint64
+  fileName string
+}
+
+func CalculateStatsForFiles(fileNames []string, options Options){
+  totals := stats{fileName: "total"}
+
+  for _, filename := range fileNames {
+    calculateStatsForFile(filename, options, &totals)
+  }
+
+  if len(fileNames) > 1 {
+    fmt.Println(formatStats(options, totals, totals.fileName))
+  }
+}
+
+func calculateStatsForFile(filename string,options Options, total *stats){
+  file, err := os.Open(filename)
+
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  defer file.Close()
+
+  reader := bufio.NewReader(file)
+  CalculateStatsWithTotals(reader, filename, options, total)
+
+}
+
+func CalculateStatsWithTotals(reader *bufio.Reader, filename string, options Options, total *stats){
+  filestats := calculateStats(reader)
+  filestats.fileName = filename
+
+  fmt.Println(formatStats(options, filestats, filestats.fileName)) 
+
+  total.lines += filestats.lines
+  total.words += filestats.words
+  total.bytes += filestats.bytes
+  total.chars += filestats.chars
+}
+
+func calculateStats(reader *bufio.Reader) stats {
+  var prevChar rune
+  var byteCount uint64
+  var lineCount uint64
+  var wordCount uint64
+  var charCout uint64
 
   for {
-    bytesRead, err := file.Read(buf)
+    charRead, bytesRead, err := reader.ReadRune()
 
     if err != nil {
       if err == io.EOF {
+        if prevChar != rune(0) && !unicode.IsSpace(prevChar){
+          wordCount++
+        }
         break
       }
-      return 0, err
+      log.Fatal(err)
     }
 
-    totalBytes += bytesRead
-  }
-  return totalBytes, nil
-}
+    byteCount += uint64(bytesRead)
+    charCout++
 
-func countLinesInFile(file io.Reader) (int, error){
-  scanner := bufio.NewScanner(file)
-  lineCount := 0
-
-  for scanner.Scan() {
-    lineCount++
-  }
-
-  if err := scanner.Err(); err != nil {
-    return 0, err
-  }
-
-  return lineCount, nil
-}
-
-func countWordsInFile(file io.Reader) (int, error){
-  scanner := bufio.NewScanner(file)
-  wordCount := 0
-
-  for scanner.Scan() {
-    line := scanner.Text()
-    words := strings.Fields(line)
-    wordCount += len(words)
-  }
-
-  if err := scanner.Err(); err != nil {
-    return 0, err
-  }
-
-  return wordCount, nil
-}
-
-func countRunesInFile(file io.Reader)(int, error){
-  scanner := bufio.NewScanner(file)
-  runeCount := 0
-
-  for scanner.Scan() {
-    line := scanner.Bytes()
-
-    for len(line) > 0 {
-      _, size := utf8.DecodeRune(line)
-      runeCount++
-      line = line[size:]
+    if charRead == '\n' {
+      lineCount++
     }
-    runeCount++
+
+    if !unicode.IsSpace(prevChar) && unicode.IsSpace(charRead){
+      wordCount++
+    }
+
+    prevChar = charRead
   }
 
-  if err := scanner.Err(); err != nil {
-    return 0, err
+  return stats{bytes: byteCount, words: wordCount, lines: lineCount, chars: charCout}
+}
+
+func formatStats(commandLineOptions Options, fileStats stats, filename string) string {
+  var cols []string
+
+  maxDigits := maxStatSize(fileStats)
+  fmtString := fmt.Sprintf("%%%dd", maxDigits)
+
+  if commandLineOptions.printLines {
+    cols = append(cols, fmt.Sprintf(fmtString, fileStats.lines))
   }
 
-  return runeCount, nil
+  if commandLineOptions.printWords {
+    cols = append(cols, fmt.Sprintf(fmtString, fileStats.words))
+  }
+
+  if commandLineOptions.printBytes {
+    cols = append(cols, fmt.Sprintf(fmtString, fileStats.bytes))
+  }
+
+  if commandLineOptions.printChars {
+    cols = append(cols, fmt.Sprintf(fmtString, fileStats.chars))
+  }
+
+  statsString := strings.Join(cols, " ") + " " + filename
+  
+  return statsString
+}
+
+func maxStatSize(fileStats stats) int {
+  maxLen := 0
+
+  lenLines := len(strconv.FormatUint(fileStats.lines, 10))
+  if lenLines > maxLen {
+    maxLen = lenLines
+  }
+
+
+  lenWords := len(strconv.FormatUint(fileStats.words, 10))
+  if lenWords > maxLen {
+    maxLen = lenWords
+  }
+  
+  lenBytes:= len(strconv.FormatUint(fileStats.bytes, 10))
+  if lenBytes> maxLen {
+    maxLen = lenBytes
+  }
+
+  lenChars := len(strconv.FormatUint(fileStats.chars, 10))
+  if lenChars > maxLen {
+    maxLen = lenChars
+  }
+
+  return maxLen
 }
