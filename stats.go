@@ -61,7 +61,6 @@ func CalculateStatsWithTotals(reader *bufio.Reader, filename string, options Opt
   total.lines += filestats.lines
   total.words += filestats.words
   total.bytes += filestats.bytes
-  total.chars += filestats.chars
 }
 
 func calculateStats(reader *bufio.Reader) stats {
